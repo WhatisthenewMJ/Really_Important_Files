@@ -4,21 +4,8 @@
     <meta charset="UTF-8">
     <title>Arcade Breakout: Score Edition</title>
     <style>
-        body {
-            background-color: #000;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            font-family: 'Courier New', Courier, monospace;
-        }
-        canvas {
-            background-color: #111;
-            border: 4px solid #333;
-            box-shadow: 0 0 30px rgba(0, 255, 204, 0.2);
-        }
+        body { background-color: #000; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Courier New', Courier, monospace; }
+        canvas { background-color: #111; border: 4px solid #333; box-shadow: 0 0 30px rgba(0, 255, 204, 0.2); }
     </style>
 </head>
 <body>
@@ -29,22 +16,20 @@
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    // 게임 설정
     let score = 0;
     const paddleWidth = 120;
     const paddleHeight = 15;
     const ballRadius = 9;
     
     let paddleX = (canvas.width - paddleWidth) / 2;
-    const paddleY = canvas.height - 50;
-    const paddleSpeed = 12; // 패들 이동 속도
+    const paddleY = canvas.height - 50; // 패들의 Y축 위치 (고정)
+    const paddleSpeed = 15;
 
     let x = canvas.width / 2;
-    let y = canvas.height - 150;
-    let dx = 5;
-    let dy = -5;
+    let y = paddleY - 20; // 시작 시 패들 바로 위에 공 배치
+    let dx = 4;
+    let dy = -4;
 
-    // 키 상태 관리
     let rightPressed = false;
     let leftPressed = false;
 
@@ -57,16 +42,11 @@
     const brickOffsetTop = 80;
     const brickOffsetLeft = 10;
 
-    // 점수 체계 정의
     const brickConfigs = [
-        { color: "#FF0000", points: 50 }, // 빨강 2줄
-        { color: "#FF0000", points: 50 },
-        { color: "#FFFF00", points: 10 }, // 노랑 2줄
-        { color: "#FFFF00", points: 10 },
-        { color: "#00FF00", points: 5 },  // 초록 2줄
-        { color: "#00FF00", points: 5 },
-        { color: "#0000FF", points: 1 },  // 파랑 2줄
-        { color: "#0000FF", points: 1 }
+        { color: "#FF0000", points: 50 }, { color: "#FF0000", points: 50 },
+        { color: "#FFFF00", points: 10 }, { color: "#FFFF00", points: 10 },
+        { color: "#00FF00", points: 5 },  { color: "#00FF00", points: 5 },
+        { color: "#0000FF", points: 1 },  { color: "#0000FF", points: 1 }
     ];
 
     const bricks = [];
@@ -77,7 +57,6 @@
         }
     }
 
-    // 키보드 이벤트
     document.addEventListener("keydown", (e) => {
         if (e.key === "Right" || e.key === "ArrowRight") rightPressed = true;
         else if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = true;
@@ -87,7 +66,6 @@
         else if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = false;
     }, false);
 
-    // 충돌 감지
     function collisionDetection() {
         for (let r = 0; r < brickRowCount; r++) {
             for (let c = 0; c < brickColumnCount; c++) {
@@ -97,17 +75,8 @@
                         dy = -dy;
                         b.status = 0;
                         score += b.points;
-                        
-                        // 빨간색 벽돌(50점)을 깨면 속도 증가
-                        if (b.points === 50) {
-                            dx *= 1.02;
-                            dy *= 1.02;
-                        }
-
-                        if (score >= (50+50+10+10+5+5+1+1)*8*10) { // 모든 벽돌 점수 합산 로직 대신 status 체크 가능
-                            // 간단히 모든 벽돌 파괴 확인
-                            checkWin();
-                        }
+                        if (b.points === 50) { dx *= 1.01; dy *= 1.01; }
+                        checkWin();
                     }
                 }
             }
@@ -122,7 +91,7 @@
             }
         }
         if(activeBricks === 0) {
-            alert("VICTORY! FINAL SCORE: " + score);
+            alert("VICTORY! SCORE: " + score);
             document.location.reload();
         }
     }
@@ -139,10 +108,7 @@
         ctx.beginPath();
         ctx.rect(paddleX, paddleY, paddleWidth, paddleHeight);
         ctx.fillStyle = "#00FFCC";
-        ctx.strokeStyle = "#FFFFFF";
-        ctx.lineWidth = 2;
         ctx.fill();
-        ctx.stroke();
         ctx.closePath();
     }
 
@@ -158,8 +124,6 @@
                     ctx.rect(brickX, brickY, brickWidth, brickHeight);
                     ctx.fillStyle = bricks[r][c].color;
                     ctx.fill();
-                    ctx.strokeStyle = "black";
-                    ctx.stroke();
                     ctx.closePath();
                 }
             }
@@ -171,12 +135,6 @@
         ctx.fillStyle = "#FFFF00";
         ctx.textAlign = "center";
         ctx.fillText("SCORE: " + score, canvas.width / 2, 40);
-        // 상단 가이드라인
-        ctx.beginPath();
-        ctx.moveTo(0, 60);
-        ctx.lineTo(canvas.width, 60);
-        ctx.strokeStyle = "#333";
-        ctx.stroke();
     }
 
     function draw() {
@@ -187,26 +145,33 @@
         drawScore();
         collisionDetection();
 
-        // 벽 충돌 (좌우)
+        // 좌우 벽 충돌
         if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
             dx = -dx;
         }
+        
         // 천장 충돌
         if (y + dy < 60 + ballRadius) {
             dy = -dy;
         } 
-        // 바닥 충돌 (게임 오버)
-        else if (y + dy > canvas.height - ballRadius) {
+
+        // --- 패들 충돌 로직 (핵심 수정 부분) ---
+        // 공의 아래쪽 끝이 패들의 윗면에 닿았는지 확인
+        if (y + dy > paddleY - ballRadius && y + dy < paddleY + paddleHeight) {
             if (x > paddleX && x < paddleX + paddleWidth) {
-                // 패들 충돌 각도 물리 적용
+                // 패들의 위치에 따라 튕기는 각도 조절
                 let hitPos = (x - (paddleX + paddleWidth / 2)) / (paddleWidth / 2);
-                dx = hitPos * 7;
-                dy = -Math.abs(dy);
-            } else {
-                alert("GAME OVER\nSCORE: " + score);
-                document.location.reload();
-                return;
+                dx = hitPos * 8; 
+                dy = -Math.abs(dy); // 반드시 위로 튕기게 설정
+                y = paddleY - ballRadius; // 공이 패들에 파묻히지 않게 위치 보정
             }
+        }
+
+        // 바닥 충돌 (게임 오버)
+        if (y + dy > canvas.height) {
+            alert("GAME OVER\nSCORE: " + score);
+            document.location.reload();
+            return;
         }
 
         // 패들 이동

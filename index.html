@@ -2,10 +2,10 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Arcade Breakout: Score Edition</title>
+    <title>Arcade Breakout - Fixed Collision</title>
     <style>
-        body { background-color: #000; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Courier New', Courier, monospace; }
-        canvas { background-color: #111; border: 4px solid #333; box-shadow: 0 0 30px rgba(0, 255, 204, 0.2); }
+        body { background: #000; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
+        canvas { background: #111; border: 4px solid #444; }
     </style>
 </head>
 <body>
@@ -16,173 +16,123 @@
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
+    // 게임 변수
     let score = 0;
     const paddleWidth = 120;
-    const paddleHeight = 15;
-    const ballRadius = 9;
+    const paddleHeight = 20; // 패들을 약간 더 두껍게
+    const ballRadius = 10;
     
     let paddleX = (canvas.width - paddleWidth) / 2;
-    const paddleY = canvas.height - 50; // 패들의 Y축 위치 (고정)
-    const paddleSpeed = 15;
+    const paddleY = 730; // 바닥에서 충분히 띄움
+    let paddleSpeed = 15;
 
     let x = canvas.width / 2;
-    let y = paddleY - 20; // 시작 시 패들 바로 위에 공 배치
+    let y = 400; // 중간에서 시작
     let dx = 4;
-    let dy = -4;
+    let dy = 5; // 아래로 떨어지면서 시작
 
     let rightPressed = false;
     let leftPressed = false;
 
     // 벽돌 설정
-    const brickRowCount = 8;
-    const brickColumnCount = 8;
-    const brickWidth = 68;
-    const brickHeight = 25;
-    const brickPadding = 5;
-    const brickOffsetTop = 80;
-    const brickOffsetLeft = 10;
-
-    const brickConfigs = [
-        { color: "#FF0000", points: 50 }, { color: "#FF0000", points: 50 },
-        { color: "#FFFF00", points: 10 }, { color: "#FFFF00", points: 10 },
-        { color: "#00FF00", points: 5 },  { color: "#00FF00", points: 5 },
-        { color: "#0000FF", points: 1 },  { color: "#0000FF", points: 1 }
-    ];
-
+    const brickRows = 8;
+    const brickCols = 8;
+    const brickW = 68;
+    const brickH = 25;
     const bricks = [];
-    for (let r = 0; r < brickRowCount; r++) {
+    const colors = ["red", "red", "yellow", "yellow", "green", "green", "blue", "blue"];
+    const points = [50, 50, 10, 10, 5, 5, 1, 1];
+
+    for(let r=0; r<brickRows; r++) {
         bricks[r] = [];
-        for (let c = 0; c < brickColumnCount; c++) {
-            bricks[r][c] = { x: 0, y: 0, status: 1, ...brickConfigs[r] };
+        for(let c=0; c<brickCols; c++) {
+            bricks[r][c] = { x: 0, y: 0, status: 1, color: colors[r], pt: points[r] };
         }
     }
 
     document.addEventListener("keydown", (e) => {
-        if (e.key === "Right" || e.key === "ArrowRight") rightPressed = true;
-        else if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = true;
-    }, false);
+        if(e.key === "ArrowRight") rightPressed = true;
+        if(e.key === "ArrowLeft") leftPressed = true;
+    });
     document.addEventListener("keyup", (e) => {
-        if (e.key === "Right" || e.key === "ArrowRight") rightPressed = false;
-        else if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = false;
-    }, false);
+        if(e.key === "ArrowRight") rightPressed = false;
+        if(e.key === "ArrowLeft") leftPressed = false;
+    });
 
-    function collisionDetection() {
-        for (let r = 0; r < brickRowCount; r++) {
-            for (let c = 0; c < brickColumnCount; c++) {
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. 벽돌 그리기 및 충돌
+        for(let r=0; r<brickRows; r++) {
+            for(let c=0; c<brickCols; c++) {
                 let b = bricks[r][c];
-                if (b.status === 1) {
-                    if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
+                if(b.status === 1) {
+                    let bx = c * (brickW + 5) + 12;
+                    let by = r * (brickH + 5) + 80;
+                    b.x = bx; b.y = by;
+                    ctx.fillStyle = b.color;
+                    ctx.fillRect(bx, by, brickW, brickH);
+
+                    // 벽돌 충돌
+                    if(x > bx && x < bx + brickW && y > by && y < by + brickH) {
                         dy = -dy;
                         b.status = 0;
-                        score += b.points;
-                        if (b.points === 50) { dx *= 1.01; dy *= 1.01; }
-                        checkWin();
+                        score += b.pt;
+                        if(b.pt === 50) { dx *= 1.02; dy *= 1.02; }
                     }
                 }
             }
         }
-    }
 
-    function checkWin() {
-        let activeBricks = 0;
-        for(let r=0; r<brickRowCount; r++) {
-            for(let c=0; c<brickColumnCount; c++) {
-                if(bricks[r][c].status === 1) activeBricks++;
-            }
-        }
-        if(activeBricks === 0) {
-            alert("VICTORY! SCORE: " + score);
-            document.location.reload();
-        }
-    }
-
-    function drawBall() {
-        ctx.beginPath();
-        ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fill();
-        ctx.closePath();
-    }
-
-    function drawPaddle() {
-        ctx.beginPath();
-        ctx.rect(paddleX, paddleY, paddleWidth, paddleHeight);
+        // 2. 패들 그리기
         ctx.fillStyle = "#00FFCC";
+        ctx.fillRect(paddleX, paddleY, paddleWidth, paddleHeight);
+
+        // 3. 공 그리기
+        ctx.beginPath();
+        ctx.arc(x, y, ballRadius, 0, Math.PI*2);
+        ctx.fillStyle = "white";
         ctx.fill();
         ctx.closePath();
-    }
 
-    function drawBricks() {
-        for (let r = 0; r < brickRowCount; r++) {
-            for (let c = 0; c < brickColumnCount; c++) {
-                if (bricks[r][c].status === 1) {
-                    let brickX = (c * (brickWidth + brickPadding)) + brickOffsetLeft;
-                    let brickY = (r * (brickHeight + brickPadding)) + brickOffsetTop;
-                    bricks[r][c].x = brickX;
-                    bricks[r][c].y = brickY;
-                    ctx.beginPath();
-                    ctx.rect(brickX, brickY, brickWidth, brickHeight);
-                    ctx.fillStyle = bricks[r][c].color;
-                    ctx.fill();
-                    ctx.closePath();
-                }
-            }
-        }
-    }
-
-    function drawScore() {
-        ctx.font = "bold 24px Consolas";
-        ctx.fillStyle = "#FFFF00";
+        // 4. 점수 표시
+        ctx.fillStyle = "yellow";
+        ctx.font = "24px Arial";
         ctx.textAlign = "center";
-        ctx.fillText("SCORE: " + score, canvas.width / 2, 40);
-    }
+        ctx.fillText("SCORE: " + score, canvas.width/2, 40);
 
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawBricks();
-        drawBall();
-        drawPaddle();
-        drawScore();
-        collisionDetection();
+        // --- 핵심: 패들 충돌 로직 (수정됨) ---
+        // 공이 내려오는 중이고(dy > 0), 공의 바닥이 패들의 윗면보다 아래로 내려왔을 때
+        if (dy > 0 && y + ballRadius >= paddleY && y - ballRadius <= paddleY + paddleHeight) {
+            // 공의 x축이 패들 범위 안에 있다면
+            if (x >= paddleX && x <= paddleX + paddleWidth) {
+                dy = -Math.abs(dy); // 위로 튕김
+                y = paddleY - ballRadius; // 공이 패들에 파묻히지 않게 위치 강제 조정
 
-        // 좌우 벽 충돌
-        if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
-            dx = -dx;
-        }
-        
-        // 천장 충돌
-        if (y + dy < 60 + ballRadius) {
-            dy = -dy;
-        } 
-
-        // --- 패들 충돌 로직 (핵심 수정 부분) ---
-        // 공의 아래쪽 끝이 패들의 윗면에 닿았는지 확인
-        if (y + dy > paddleY - ballRadius && y + dy < paddleY + paddleHeight) {
-            if (x > paddleX && x < paddleX + paddleWidth) {
-                // 패들의 위치에 따라 튕기는 각도 조절
-                let hitPos = (x - (paddleX + paddleWidth / 2)) / (paddleWidth / 2);
-                dx = hitPos * 8; 
-                dy = -Math.abs(dy); // 반드시 위로 튕기게 설정
-                y = paddleY - ballRadius; // 공이 패들에 파묻히지 않게 위치 보정
+                // 패들의 맞은 위치에 따라 각도 변화
+                let hitPoint = (x - (paddleX + paddleWidth/2)) / (paddleWidth/2);
+                dx = hitPoint * 8; 
             }
         }
 
-        // 바닥 충돌 (게임 오버)
-        if (y + dy > canvas.height) {
-            alert("GAME OVER\nSCORE: " + score);
+        // 5. 벽 충돌 (좌우/천장)
+        if(x + dx > canvas.width - ballRadius || x + dx < ballRadius) dx = -dx;
+        if(y + dy < 60) dy = -dy;
+
+        // 6. 게임 오버 (패들보다 훨씬 아래로 내려갔을 때)
+        if(y > canvas.height) {
+            alert("GAME OVER! SCORE: " + score);
             document.location.reload();
             return;
         }
 
-        // 패들 이동
-        if (rightPressed && paddleX < canvas.width - paddleWidth) {
-            paddleX += paddleSpeed;
-        } else if (leftPressed && paddleX > 0) {
-            paddleX -= paddleSpeed;
-        }
+        // 7. 이동
+        if(rightPressed && paddleX < canvas.width - paddleWidth) paddleX += paddleSpeed;
+        if(leftPressed && paddleX > 0) paddleX -= paddleSpeed;
 
         x += dx;
         y += dy;
+
         requestAnimationFrame(draw);
     }
 

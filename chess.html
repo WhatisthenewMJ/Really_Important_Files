@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>정통 체스 & 변종 샌드박스 에디터</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #1e1e24;
+            color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 { margin-bottom: 5px; color: #fff; font-size: 24px;}
+        p { margin: 0 0 20px 0; color: #aaa; font-size: 14px; }
+        
+        .main-layout {
+            display: flex;
+            gap: 25px;
+            background: #2d2d35;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            max-width: 1100px;
+            width: 100%;
+            align-items: flex-start;
+        }
+
+        /* 체스판 */
+        #board-container {
+            display: grid;
+            border: 4px solid #444;
+            background-color: #111;
+        }
+        .tile {
+            width: 55px;
+            height: 55px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 32px;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+        }
+        .tile.light { background-color: #e2d6b5; }
+        .tile.dark { background-color: #b88b64; }
+        .tile.selected { background-color: #5d8a39 !important; }
+        .tile.highlight { background-color: #4c914c !important; border: 2px dashed #90ee90; box-sizing: border-box; }
+        
+        /* 특수 지형 */
+        .tile.void { background-color: transparent !important; border: 1px solid #333; }
+        .tile.wall { background-color: #555 !important; border: 2px solid #222; box-sizing: border-box; }
+        .tile.portal-a { background-color: #007bff !important; border-radius: 50%; box-shadow: inset 0 0 10px #000; }
+        .tile.portal-b { background-color: #fd7e14 !important; border-radius: 50%; box-shadow: inset 0 0 10px #000; }
+
+        /* 사이드 패널 */
+        .panel {
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .tab-menu {
+            display: flex;
+            background: #1e1e24;
+            padding: 4px;
+            border-radius: 6px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 8px;
+            background: none;
+            border: none;
+            color: #aaa;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .tab-btn.active {
+            background: #2d2d35;
+            color: #fff;
+            border-radius: 4px;
+        }
+
+        .section {
+            background-color: #222227;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #3e3e4a;
+        }
+        .section-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #4af;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+        .tool-btn {
+            padding: 8px;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 12px;
+            text-align: center;
+        }
+        .tool-btn.active {
+            background-color: #4af;
+            border-color: #4af;
+            color: #000;
+            font-weight: bold;
+        }
+
+        /* 기물 디자이너 */
+        .designer-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 30px);
+            gap: 2px;
+            margin: 10px 0;
+            justify-content: center;
+        }
+        .designer-cell {
+            width: 30px;
+            height: 30px;
+            background: #444;
+            border: 1px solid #555;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 10px;
+        }
+        .designer-cell.center { background: #ff4757 !important; color: #fff; cursor: default; }
+        .designer-cell.active { background: #4af; }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #4af;
+            color: #111;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .btn:hover { background-color: #0099ff; }
+        .btn.danger { background-color: #ff4757; color: white; }
+
+        .status {
+            padding: 10px;
+            background: #111;
+            border-radius: 6px;
+            font-size: 13px;
+            text-align: center;
+            color: #0ff;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>정통 체스 & 변종 샌드박스</h1>
+    <p>기본 체스 룰이 작동합니다. 원할 때 에디터 탭에서 보드를 개조해 보세요.</p>
+    
+    <div class="main-layout">
+        <div id="board-container"></div>
+
+        <div class="panel">
+            <div class="tab-menu">
+                <button class="tab-btn active" id="tab-play" onclick="setMode('play')">🎮 플레이</button>
+                <button class="tab-btn" id="tab-edit" onclick="setMode('edit')">🛠️ 맵 에디터</button>
+                <button class="tab-btn" id="tab-design" onclick="setMode('design')">✏️ 기물 생성</button>
+            </div>
+
+            <!-- 플레이 모드 -->
+            <div id="panel-play" class="section">
+                <div class="section-title">플레이 정보</div>
+                <div class="status" id="status-text">백색(W)의 턴입니다.</div>
+            </div>
+
+            <!-- 에디터 모드 -->
+            <div id="panel-edit" class="section" style="display:none;">
+                <div class="section-title">맵 그리기 도구</div>
+                <div class="tools-grid" id="paint-tools">
+                    <button class="tool-btn active" onclick="selectBrush('Eraser')">🗑️지우개</button>
+                    <button class="tool-btn" onclick="selectBrush('Wall')">🧱장벽</button>
+                    <button class="tool-btn" onclick="selectBrush('Void')">🕳️구멍</button>
+                    <button class="tool-btn" onclick="selectBrush('PortalA')">🔵포탈A</button>
+                    <button class="tool-btn" onclick="selectBrush('PortalB')">🟠포탈B</button>
+                </div>
+                
+                <div class="section-title" style="margin-top:15px;">기물 배치 (표준 및 커스텀)</div>
+                <div class="tools-grid" id="piece-palette" style="grid-template-columns: repeat(3, 1fr);">
+                    <!-- 기물 팔레트 -->
+                </div>
+            </div>
+
+            <!-- 기물 디자인 모드 -->
+            <div id="panel-design" class="section" style="display:none;">
+                <div class="section-title">기물 이동 방향 디자인</div>
+                <div style="font-size:11px; color:#aaa; text-align:center;">중앙 빨간 칸 기준 기물의 행마를 그리세요.</div>
+                
+                <div class="designer-grid" id="designer"></div>
+
+                <div style="display:flex; gap: 5px; margin-bottom:10px;">
+                    <label style="font-size:12px; display:flex; align-items:center; gap:3px;">
+                        <input type="checkbox" id="chk-sliding"> 슬라이딩 (관통)
+                    </label>
+                </div>
+                <div style="display:flex; gap:5px; margin-bottom: 5px;">
+                    <input type="text" id="custom-symbol" placeholder="아이콘(예: 👾)" maxlength="2" style="width:50%; background:#333; color:#fff; border:1px solid #555; padding:5px; border-radius:4px;">
+                    <select id="custom-color" style="width:50%; background:#333; color:#fff; border:1px solid #555; border-radius:4px;">
+                        <option value="W">백색(W)</option>
+                        <option value="B">흑색(B)</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="saveCustomPiece()">기물 생성 및 추가</button>
+            </div>
+
+            <div class="section">
+                <button class="btn danger" onclick="resetStandard()">초기 표준 체스판 리셋</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // ==========================================
+    // 1. 완벽 복구된 정통 체스 기물 클래스 (OOP)
+    // ==========================================
+    class Piece {
+        constructor(color, symbol, name) {
+            this.color = color;
+            this.symbol = symbol;
+            this.name = name;
+        }
+
+        getSlidingMoves(x, y, board, directions) {
+            const moves = [];
+            for (let [vx, vy] of directions) {
+                let cx = x + vx; let cy = y + vy;
+                while (cx >= 0 && cx < board.width && cy >= 0 && cy < board.height) {
+                    const targetTile = board.tiles[cy][cx];
+                    const targetPiece = board.grid[cy][cx];
+                    if (targetTile === 'void' || targetTile === 'wall') break;
+                    if (!targetPiece) {
+                        moves.push([cx, cy]);
+                    } else {
+                        if (targetPiece.color !== this.color) moves.push([cx, cy]);
+                        break;
+                    }
+                    cx += vx; cy += vy;
+                }
+            }
+            return moves;
+        }
+    }
+
+    // 폰 (Pawn) 고유 규칙 완벽 복구
+    class Pawn extends Piece {
+        getValidMoves(x, y, board) {
+            const moves = [];
+            const dir = this.color === 'W' ? 1 : -1;
+            const startRow = this.color === 'W' ? 1 : board.height - 2;
+
+            // 1. 일반 전진
+            let ny = y + dir;
+            if (ny >= 0 && ny < board.height && !board.grid[ny][x] && board.tiles[ny][x] !== 'void' && board.tiles[ny][x] !== 'wall') {
+                moves.push([x, ny]);
+                // 2. 시작 지점 2칸 전진
+                let nny = y + (dir * 2);
+                if (y === startRow && nny >= 0 && nny < board.height && !board.grid[nny][x] && board.tiles[nny][x] !== 'void' && board.tiles[nny][x] !== 'wall') {
+                    moves.push([x, nny]);
+                }
+            }
+
+            // 3. 대각선 적 기물 공격 전진
+            const attackCols = [x - 1, x + 1];
+            for (let cx of attackCols) {
+                if (cx >= 0 && cx < board.width && ny >= 0 && ny < board.height) {
+                    const target = board.grid[ny][cx];
+                    const targetTile = board.tiles[ny][cx];
+                    if (target && target.color !== this.color && targetTile !== 'void' && targetTile !== 'wall') {
+                        moves.push([cx, ny]);
+                    }
+                }
+            }
+            return moves;
+        }
+    }
+
+    // 나이트 (Knight) 장애물 무시 점프 복구
+    class Knight extends Piece {
+        getValidMoves(x, y, board) {
+            const moves = [];
+            const offsets = [[1,2], [2,1], [-1,2], [-2,1], [1,-2], [2,-1], [-1,-2], [-2,-1]];
+            for (let [vx, vy] of offsets) {
+                let cx = x + vx; let cy = y + vy;
+                if (cx >= 0 && cx < board.width && cy >= 0 && cy < board.height) {
+                    const targetPiece = board.grid[cy][cx];
+                    const targetTile = board.tiles[cy][cx];
+                    if (targetTile !== 'void' && targetTile !== 'wall') {
+                        if (!targetPiece || targetPiece.color !== this.color) {
+                            moves.push([cx, cy]);
+                        }
+                    }
+                }
+            }
+            return moves;
+        }
+    }
+
+    // 비숍 (Bishop)
+    class Bishop extends Piece {
+        getValidMoves(x, y, board) {
+            return this.getSlidingMoves(x, y, board, [[1,1], [1,-1], [-1,1], [-1,-1]]);
+        }
+    }
+
+    // 룩 (Rook)
+    class Rook extends Piece {
+        getValidMoves(x, y, board) {
+            return this.getSlidingMoves(x, y, board, [[1,0], [-1,0], [0,1], [0,-1]]);
+        }
+    }
+
+    // 퀸 (Queen)
+    class Queen extends Piece {
+        getValidMoves(x, y, board) {
+            return this.getSlidingMoves(x, y, board, [[1,0], [-1,0], [0,1], [0,-1], [1,1], [1,-1], [-1,1], [-1,-1]]);
+        }
+    }
+
+    // 킹 (King)
+    class King extends Piece {
+        getValidMoves(x, y, board) {
+            const moves = [];
+            const directions = [[1,0], [-1,0], [0,1], [0,-1], [1,1], [1,-1], [-1,1], [-1,-1]];
+            for (let [vx, vy] of directions) {
+                let cx = x + vx; let cy = y + vy;
+                if (cx >= 0 && cx < board.width && cy >= 0 && cy < board.height) {
+                    const targetPiece = board.grid[cy][cx];
+                    const targetTile = board.tiles[cy][cx];
+                    if (targetTile !== 'void' && targetTile !== 'wall') {
+                        if (!targetPiece || targetPiece.color !== this.color) {
+                            moves.push([cx, cy]);
+                        }
+                    }
+                }
+            }
+            return moves;
+        }
+    }
+
+    // 에디터 생성용 커스텀 기물 클래스
+    class CustomPiece extends Piece {
+        constructor(color, symbol, vectors, isSliding, name) {
+            super(color, symbol, name);
+            this.vectors = vectors;
+            this.isSliding = isSliding;
+        }
+
+        getValidMoves(x, y, board) {
+            const moves = [];
+            for (let [vx, vy] of this.vectors) {
+                if (this.isSliding) {
+                    let cx = x + vx; let cy = y + vy;
+                    while (cx >= 0 && cx < board.width && cy >= 0 && cy < board.height) {
+                        const targetTile = board.tiles[cy][cx];
+                        const targetPiece = board.grid[cy][cx];
+                        if (targetTile === 'void' || targetTile === 'wall') break;
+                        if (!targetPiece) {
+                            moves.push([cx, cy]);
+                        } else {
+                            if (targetPiece.color !== this.color) moves.push([cx, cy]);
+                            break;
+                        }
+                        cx += vx; cy += vy;
+                    }
+                } else {
+                    let cx = x + vx; let cy = y + vy;
+                    if (cx >= 0 && cx < board.width && cy >= 0 && cy < board.height) {
+                        const targetTile = board.tiles[cy][cx];
+                        const targetPiece = board.grid[cy][cx];
+                        if (targetTile !== 'void' && targetTile !== 'wall') {
+                            if (!targetPiece || targetPiece.color !== this.color) moves.push([cx, cy]);
+                        }
+                    }
+                }
+            }
+            return moves;
+        }
+    }
+
+    // ==========================================
+    // 2. 보드 데이터 및 초기화
+    // ==========================================
+    class Board {
+        constructor(width = 8, height = 8) {
+            this.width = width;
+            this.height = height;
+            this.grid = Array(height).fill(null).map(() => Array(width).fill(null));
+            this.tiles = Array(height).fill('normal').map(() => Array(width).fill('normal'));
+        }
+
+        setupStandard() {
+            this.grid = Array(8).fill(null).map(() => Array(8).fill(null));
+            this.tiles = Array(8).fill('normal').map(() => Array(8).fill('normal'));
+            this.width = 8; this.height = 8;
+
+            // 정통 체스 클래스 인스턴스 정밀 배치
+            this.grid[0][0] = new Rook('W', '♖', 'Rook');
+            this.grid[0][1] = new Knight('W', '♘', 'Knight');
+            this.grid[0][2] = new Bishop('W', '♗', 'Bishop');
+            this.grid[0][3] = new Queen('W', '♕', 'Queen');
+            this.grid[0][4] = new King('W', '♔', 'King');
+            this.grid[0][5] = new Bishop('W', '♗', 'Bishop');
+            this.grid[0][6] = new Knight('W', '♘', 'Knight');
+            this.grid[0][7] = new Rook('W', '♖', 'Rook');
+            for(let x=0; x<8; x++) this.grid[1][x] = new Pawn('W', '♙', 'Pawn');
+
+            this.grid[7][0] = new Rook('B', '♜', 'Rook');
+            this.grid[7][1] = new Knight('B', '♞', 'Knight');
+            this.grid[7][2] = new Bishop('B', '♝', 'Bishop');
+            this.grid[7][3] = new Queen('B', '♛', 'Queen');
+            this.grid[7][4] = new King('B', '♚', 'King');
+            this.grid[7][5] = new Bishop('B', '♝', 'Bishop');
+            this.grid[7][6] = new Knight('B', '♞', 'Knight');
+            this.grid[7][7] = new Rook('B', '♜', 'Rook');
+            for(let x=0; x<8; x++) this.grid[6][x] = new Pawn('B', '♟', 'Pawn');
+        }
+    }
+
+    // ==========================================
+    // 3. UI 및 상태 조작
+    // ==========================================
+    const board = new Board();
+    board.setupStandard();
+
+    let gameMode = 'play';
+    let selectedTile = null;
+    let turn = 'W';
+
+    // 에디터 팔레트 시스템
+    let activeBrush = 'Eraser';
+    const userCreatedPieces = [];
+
+    // 에디터 배치용 표준 기물 리스트 추가
+    const standardPiecesPalette = [
+        new Pawn('W', '♙', 'Pawn'), new Rook('W', '♖', 'Rook'), new Knight('W', '♘', 'Knight'), new Bishop('W', '♗', 'Bishop'), new Queen('W', '♕', 'Queen'), new King('W', '♔', 'King'),
+        new Pawn('B', '♟', 'Pawn'), new Rook('B', '♜', 'Rook'), new Knight('B', '♞', 'Knight'), new Bishop('B', '♝', 'Bishop'), new Queen('B', '♛', 'Queen'), new King('B', '♚', 'King'),
+    ];
+
+    const designMatrix = Array(5).fill(0).map(() => Array(5).fill(0));
+
+    function setMode(mode) {
+        gameMode = mode;
+        selectedTile = null;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`tab-${mode}`).classList.add('active');
+
+        document.getElementById('panel-play').style.display = mode === 'play' ? 'block' : 'none';
+        document.getElementById('panel-edit').style.display = mode === 'edit' ? 'block' : 'none';
+        document.getElementById('panel-design').style.display = mode === 'design' ? 'block' : 'none';
+
+        if (mode === 'edit') {
+            buildPalette();
+        }
+        renderBoard();
+    }
+
+    function selectBrush(brush) {
+        activeBrush = brush;
+        document.querySelectorAll('#paint-tools .tool-btn, #piece-palette .tool-btn').forEach(btn => btn.classList.remove('active'));
+        if (typeof brush === 'string') {
+            // 문자열 도구 매칭 하이라이트
+            const buttons = document.querySelectorAll('#paint-tools .tool-btn');
+            buttons.forEach(btn => {
+                if(btn.innerText.includes(brush === 'Eraser' ? '지우개' : brush === 'Wall' ? '장벽' : brush === 'Void' ? '구멍' : '포탈')) {
+                    btn.classList.add('active');
+                }
+            });
+        } else {
+            event.target.classList.add('active');
+        }
+    }
+
+    function buildPalette() {
+        const palette = document.getElementById('piece-palette');
+        palette.innerHTML = '';
+
+        // 1. 표준 기물 먼저 팔레트에 로드
+        standardPiecesPalette.forEach(p => {
+            const btn = document.createElement('button');
+            btn.className = 'tool-btn';
+            btn.innerText = `${p.symbol}(${p.color})`;
+            btn.onclick = () => selectBrush(p);
+            palette.appendChild(btn);
+        });
+
+        // 2. 유저 커스텀 기물 추가 로드
+        userCreatedPieces.forEach(p => {
+            const btn = document.createElement('button');
+            btn.className = 'tool-btn';
+            btn.style.borderColor = '#4af';
+            btn.innerText = `${p.symbol}(${p.color})`;
+            btn.onclick = () => selectBrush(p);
+            palette.appendChild(btn);
+        });
+    }
+
+    function renderBoard() {
+        const container = document.getElementById('board-container');
+        container.innerHTML = '';
+        container.style.gridTemplateColumns = `repeat(${board.width}, 55px)`;
+
+        for (let y = board.height - 1; y >= 0; y--) {
+            for (let x = 0; x < board.width; x++) {
+                const tile = document.createElement('div');
+                tile.className = `tile ${(x + y) % 2 === 0 ? 'dark' : 'light'}`;
+                tile.dataset.x = x; tile.dataset.y = y;
+
+                const terrain = board.tiles[y][x];
+                if (terrain === 'void') tile.classList.add('void');
+                else if (terrain === 'wall') tile.classList.add('wall');
+                else if (terrain === 'portalA') tile.classList.add('portal-a');
+                else if (terrain === 'portalB') tile.classList.add('portal-b');
+
+                const piece = board.grid[y][x];
+                if (piece && terrain !== 'void') {
+                    tile.innerText = piece.symbol;
+                    tile.style.color = piece.color === 'W' ? '#ffffff' : '#000000';
+                    if (piece.color === 'W') tile.style.textShadow = "0 0 2px #000";
+                }
+
+                tile.addEventListener('click', () => onTileClick(x, y));
+                container.appendChild(tile);
+            }
+        }
+    }
+
+    function onTileClick(x, y) {
+        if (gameMode === 'edit') {
+            // 에디터 기물 배치/수정 로직
+            if (typeof activeBrush === 'string') {
+                board.grid[y][x] = null;
+                if (activeBrush === 'Eraser') board.tiles[y][x] = 'normal';
+                else if (activeBrush === 'Wall') board.tiles[y][x] = 'wall';
+                else if (activeBrush === 'Void') board.tiles[y][x] = 'void';
+                else if (activeBrush === 'PortalA') { removePortal('portalA'); board.tiles[y][x] = 'portalA'; }
+                else if (activeBrush === 'PortalB') { removePortal('portalB'); board.tiles[y][x] = 'portalB'; }
+            } else if (activeBrush instanceof Piece) {
+                if (board.tiles[y][x] !== 'wall' && board.tiles[y][x] !== 'void') {
+                    // 클래스 형식 보존하여 새로 복사 복제
+                    let proto = Object.getPrototypeOf(activeBrush);
+                    let clone = Object.create(proto);
+                    Object.assign(clone, activeBrush);
+                    board.grid[y][x] = clone;
+                }
+            }
+            renderBoard();
+        } else if (gameMode === 'play') {
+            // 복구된 표준 체스 플레이 로직
+            const piece = board.grid[y][x];
+            if (selectedTile) {
+                const selectedPiece = board.grid[selectedTile.y][selectedTile.x];
+                const validMoves = selectedPiece.getValidMoves(selectedTile.x, selectedTile.y, board);
+                const isMoveValid = validMoves.some(pos => pos[0] === x && pos[1] === y);
+
+                if (isMoveValid) {
+                    let destX = x; let destY = y;
+                    const tileType = board.tiles[y][x];
+                    
+                    if (tileType === 'portalA' || tileType === 'portalB') {
+                        const targetPortal = tileType === 'portalA' ? 'portalB' : 'portalA';
+                        const linkCoords = findPortal(targetPortal);
+                        if (linkCoords) { destX = linkCoords.x; destY = linkCoords.y; }
+                    }
+
+                    board.grid[destY][destX] = selectedPiece;
+                    board.grid[selectedTile.y][selectedTile.x] = null;
+                    if (destX !== x || destY !== y) board.grid[y][x] = null;
+
+                    turn = turn === 'W' ? 'B' : 'W';
+                    selectedTile = null;
+                    document.getElementById('status-text').innerText = `${turn === 'W' ? '백색(W)' : '흑색(B)'}의 턴입니다.`;
+                    renderBoard();
+                    return;
+                }
+            }
+
+            if (piece && piece.color === turn) {
+                selectedTile = {x, y};
+                renderBoard();
+                highlightSelection(x, y);
+            } else {
+                selectedTile = null;
+                renderBoard();
+            }
+        }
+    }
+
+    function findPortal(type) {
+        for (let y = 0; y < board.height; y++) {
+            for (let x = 0; x < board.width; x++) {
+                if (board.tiles[y][x] === type) return {x, y};
+            }
+        }
+        return null;
+    }
+
+    function removePortal(type) {
+        for (let y = 0; y < board.height; y++) {
+            for (let x = 0; x < board.width; x++) {
+                if (board.tiles[y][x] === type) board.tiles[y][x] = 'normal';
+            }
+        }
+    }
+
+    function highlightSelection(sx, sy) {
+        const tiles = document.querySelectorAll('.tile');
+        tiles.forEach(tile => {
+            const tx = parseInt(tile.dataset.x); const ty = parseInt(tile.dataset.y);
+            if (tx === sx && ty === sy) tile.classList.add('selected');
+        });
+
+        const piece = board.grid[sy][sx];
+        const validMoves = piece.getValidMoves(sx, sy, board);
+        validMoves.forEach(([mx, my]) => {
+            tiles.forEach(tile => {
+                const tx = parseInt(tile.dataset.x); const ty = parseInt(tile.dataset.y);
+                if (tx === mx && ty === my) tile.classList.add('highlight');
+            });
+        });
+    }
+
+    // ==========================================
+    // 4. 기물 디자이너
+    // ==========================================
+    function buildDesignerGrid() {
+        const container = document.getElementById('designer');
+        container.innerHTML = '';
+        for (let y = 4; y >= 0; y--) {
+            for (let x = 0; x < 5; x++) {
+                const cell = document.createElement('div');
+                cell.className = 'designer-cell';
+                
+                if (x === 2 && y === 2) {
+                    cell.classList.add('center');
+                    cell.innerText = '🛡️';
+                } else {
+                    if (designMatrix[y][x] === 1) cell.classList.add('active');
+                    cell.onclick = () => {
+                        designMatrix[y][x] = designMatrix[y][x] === 1 ? 0 : 1;
+                        buildDesignerGrid();
+                    };
+                }
+                container.appendChild(cell);
+            }
+        }
+    }
+
+    function saveCustomPiece() {
+        const symbol = document.getElementById('custom-symbol').value.trim() || '👾';
+        const color = document.getElementById('custom-color').value;
+        const isSliding = document.getElementById('chk-sliding').checked;
+
+        const vectors = [];
+        for (let y = 0; y < 5; y++) {
+            for (let x = 0; x < 5; x++) {
+                if (designMatrix[y][x] === 1) {
+                    vectors.push([x - 2, y - 2]);
+                }
+            }
+        }
+
+        if (vectors.length === 0) {
+            alert('최소 하나 이상의 이동 방향 격자를 그려주세요!');
+            return;
+        }
+
+        const newPiece = new CustomPiece(color, symbol, vectors, isSliding, "Custom");
+        userCreatedPieces.push(newPiece);
+
+        for (let i = 0; i < 5; i++) designMatrix[i].fill(0);
+        document.getElementById('custom-symbol').value = '';
+        
+        alert(`신규 기물 '${symbol}'이 생성되었습니다. '🛠️ 맵 에디터' 탭의 하단 리스트에서 꺼내어 배치해 보세요.`);
+        buildDesignerGrid();
+        setMode('edit');
+    }
+
+    function resetStandard() {
+        board.setupStandard();
+        setMode('play');
+    }
+
+    buildDesignerGrid();
+    renderBoard();
+</script>
+</body>
+</html>
